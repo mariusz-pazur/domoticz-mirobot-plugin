@@ -63,7 +63,7 @@ def socket_incoming_connection(socket, address):
 
     sockets[address] = socket
 
-    unpacker = Unpacker(encoding='utf-8')
+    unpacker = Unpacker()
     while True:
         data = socket.recv(4096)
 
