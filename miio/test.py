@@ -20,9 +20,9 @@ args = parser.parse_args()
 print('test: trying connect to %s:%s' % (args.host, args.port))
 
 client = socket.create_connection((args.host, args.port))
-client.sendall(msgpack.packb(['status'], use_bin_type=True))
+client.sendall(msgpack.packb(['get_room_mapping'], use_bin_type=True))
 
-print("test: sent request to server [status]")
+print("test: sent request to server [get_room_mapping]")
 print("test: reading response...")
 
 unpacker = Unpacker()

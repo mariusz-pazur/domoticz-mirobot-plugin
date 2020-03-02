@@ -176,6 +176,10 @@ class VacuumCommand(object):
         }
 
     @classmethod
+    def get_room_mapping(cls, vac):
+        return {'res': vac.get_room_mapping()}
+
+    @classmethod
     def care_reset_main_brush(cls, vac):
         return {'code': vac.send('reset_consumable', ['main_brush_work_time'])}
 
