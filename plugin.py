@@ -9,6 +9,7 @@
         <param field="Port" label="MIIOServer Port" width="60px" required="true" default="22222"/>
         <param field="Mode3" label="Zones" width="600px" required="false" default="{}"/>
         <param field="Mode6" label="Targets" width="600px" required="true" default="{}"/>
+        <param field="Mode1" label="Rooms" width="600px" required="true" default="{}"/>
 
         <param field="Mode2" label="Update interval (sec)" width="30px" required="true" default="15"/>
         <param field="Mode5" label="Fan Level Type" width="300px">
@@ -81,8 +82,15 @@ class BasePlugin:
         "LevelOffHidden": "true",
         "SelectorStyle": "0"
     }
+    roomOptions = {
+        "LevelActions": "",
+        "LevelNames": "Off",
+        "LevelOffHidden": "true",
+        "SelectorStyle": "0"
+    }
     myzones={}
     mytargets={}
+    myrooms={}
     battery=0
     customSensorOptions = {"Custom": "1;%"}
 
@@ -95,7 +103,7 @@ class BasePlugin:
     brushIconName = 'xiaomi-mi-robot-vacuum-brush'
     filterIconName = 'xiaomi-mi-robot-vacuum-filter'
     chargeIconName = 'xiaomi-mi-robot-vacuum-charge'
-
+    roomIconName = 'xiaomi-mi-robot-vacuum-zone'
 
     statusUnit = 1
     controlUnit = 2
@@ -109,6 +117,7 @@ class BasePlugin:
     cResetControlUnit = 10
     zoneControlUnit = 11
     targetControlUnit = 12
+    roomControlUnit = 13
 
     # statuses by protocol
     # https://github.com/marcelrv/XiaomiRobotVacuumProtocol/blob/master/StatusMessage.md
@@ -131,6 +140,7 @@ class BasePlugin:
         15: _('Docking'),
         16: _('Go To'),
         17: _('Zone cleaning'),
+        18: _('Room cleaning'),
         100:_('Full'),
         200:_('Docking')
     }
@@ -151,13 +161,19 @@ class BasePlugin:
             self.myzones = json.loads(Parameters['Mode3'])
         except Exception:
             self.myzones={}
-        Domoticz.Debug("Gots zones: %s" % self.myzones)
+        Domoticz.Debug("Got zones: %s" % self.myzones)
 
         try:
             self.mytargets = json.loads(Parameters['Mode6'])
         except Exception:
             self.mytargets={}
-        Domoticz.Debug("Gots targets: %s" % self.mytargets)
+        Domoticz.Debug("Got targets: %s" % self.mytargets)
+
+        try:
+            self.myrooms = json.loads(Parameters['Mode1'])
+        except Exception:
+            self.myrooms={}
+        Domoticz.Debug("Got rooms: %s" % self.myrooms)
 
         self.heartBeatCnt = 0
         self.subHost = Parameters['Address']
@@ -254,6 +270,17 @@ class BasePlugin:
             Domoticz.Device(Name='Target Control', Unit=self.targetControlUnit, TypeName='Selector Switch', Image=targetIconID,
                             Options=self.targetOptions).Create()
 
+        if self.roomControlUnit not in Devices:
+            i=1
+            while i <= len(self.myrooms):
+                Options=str(i*10)
+                self.roomOptions["LevelActions"] += "|"
+                self.roomOptions["LevelNames"] += "|" + str(self.myrooms[Options][0])
+                i += 1
+            Domoticz.Log("Room names: %s" % self.roomOptions["LevelNames"] )
+            Domoticz.Device(Name='Room Control', Unit=self.roomControlUnit, TypeName='Selector Switch', Image=zoneIconID,
+                            Options=self.roomOptions).Create()
+
         Domoticz.Heartbeat(int(Parameters['Mode2']))
 
 
@@ -277,14 +304,14 @@ class BasePlugin:
                     self.battery=int(result['battery'])
                     if (result['state_code'] == 8) and (self.battery == 100) : result['state_code']=200
                     UpdateDevice(self.statusUnit,
-                                 (1 if result['state_code'] in [5, 6, 11, 14, 16, 17] else 0), # ON is Cleaning, Back to home, Spot cleaning, Go To, Zone cleaning
+                                 (1 if result['state_code'] in [5, 6, 11, 14, 16, 17, 18] else 0), # ON is Cleaning, Back to home, Spot cleaning, Go To, Zone cleaning, Room cleaning
                                  self.states.get(result['state_code'], 'Undefined') + _('. Charge ') + str(self.battery) + '%',
                                  self.battery)
 
                     if (result['state_code'] != 17) and (Devices[self.zoneControlUnit].nValue != 0):
                         if (datetime.now() - datetime.strptime(Devices[self.zoneControlUnit].LastUpdate, "%Y-%m-%d %H:%M:%S")).seconds > 29:
                             #Domoticz.Status('Убока зоны %s завершена, площадь %s кв.м., время %s минут  ' % (self.myzones[str(Devices[self.zoneControlUnit].sValue)][0], result['clean_area'], (result['clean_seconds']/60) ))
-                            Domoticz.Status(_('%s area cleaning completed, area %s sq.m., time %s minutes') % (self.myzones[str(Devices[self.zoneControlUnit].sValue)][0], result['clean_area'], (result['clean_seconds']/60) ))
+                            #Domoticz.Status(_('%s area cleaning completed, area %s sq.m., time %s minutes') % (self.myzones[str(Devices[self.zoneControlUnit].sValue)][0], result['clean_area'], (result['clean_seconds']/60) ))
                             UpdateDevice(self.zoneControlUnit, 0, 'Off')
 
 
@@ -294,6 +321,8 @@ class BasePlugin:
 
 #                    UpdateDevice(self.batteryUnit, result['battery'], str(result['battery']), result['battery'],
 #                                 AlwaysUpdate=(self.heartBeatCnt % 100 == 0))
+                    if result['state_code'] != 18 and (Devices[self.roomControlUnit].nValue != 0):
+                        UpdateDevice(self.roomControlUnit, 0, 'Off')
 
                     if Parameters['Mode5'] == 'dimmer':
                         UpdateDevice(self.fanDimmerUnit, 2, str(result['fan_level'])) # nValue=2 for show percentage, instead ON/OFF state
@@ -404,6 +433,10 @@ class BasePlugin:
                 #Domoticz.Status("Перемещение в точку %s" % (self.mytargets[str(Level)][0]))
                 Domoticz.Status(_("Move to point %s") % (self.mytargets[str(Level)][0]))
 
+        elif self.roomControlUnit == Unit and self.isOFF:
+            if self.apiRequest('room_clean', self.myrooms[str(Level)][1]):
+                UpdateDevice(self.roomControlUnit, 1, str(Level))
+                Domoticz.Status(_("Room cleaning %s") % (self.myrooms[str(Level)][0]))
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)

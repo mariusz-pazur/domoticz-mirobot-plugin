@@ -162,6 +162,10 @@ class VacuumCommand(object):
         return {'code': vac.zoned_clean(zones)}
 
     @classmethod
+    def room_clean(cls, vac, rooms):
+        return {'code': vac.segment_clean(rooms)}
+
+    @classmethod
     def goto(cls, vac, coord):
         return {'code': vac.goto(int(coord[0]), int(coord[1]))}    
 
