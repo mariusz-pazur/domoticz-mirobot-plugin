@@ -44,13 +44,13 @@ Also do note that the setuptools version is too old for installing some requirem
 Then go to plugins folder and clone repository:
 ```
 cd domoticz/plugins
-git clone https://github.com/avgays/domoticz-mirobot-plugin.git xiaomi-mirobot
-cd xiaomi-mirobot
-mv ~/domoticz/plugins/xiaomi-mirobot/miio/ ~/
+git clone https://github.com/mariusz-pazur/domoticz-mirobot-plugin.git
+cd domoticz-mirobot-plugin
+virtualenv -p python3 .env
+source .env/bin/activate
+pip3 install gevent msgpack python-miio
+deactivate
 
-# and then:
-sudo pip3 install -r pip_req.txt 
-# or sudo pip3 install gevent msgpack-python python-miio
 ```
 
 Need some prepare of **MIIO Server** to run as service:

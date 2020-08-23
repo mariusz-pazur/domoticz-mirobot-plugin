@@ -32,10 +32,10 @@
 import os
 import sys
 
-#module_paths = [x[0] for x in os.walk( os.path.join(os.path.dirname(__file__), '.', '.env/lib/') ) if x[0].endswith('site-packages') ]
-#for mp in module_paths:
-#    sys.path.append(mp)
-sys.path.append('/usr/local/lib/python3.5')
+module_paths = [x[0] for x in os.walk( os.path.join(os.path.dirname(__file__), '.', '.env/lib/') ) if x[0].endswith('site-packages') ]
+for mp in module_paths:
+   sys.path.append(mp)
+#sys.path.append('/usr/local/lib/python3.5')
 import Domoticz
 import msgpack
 import json
@@ -151,11 +151,14 @@ class BasePlugin:
         self.subHost = None
         self.subPort = None
         self.tcpConn = None
-        self.unpacker = msgpack.Unpacker()
+        self.unpacker = msgpack.Unpacker(raw=False)
 
     def onStart(self):
+        Domoticz.Log("onstart")
         if Parameters['Mode4'] == 'Debug':
+            Domoticz.Debug("Debug enabled")
             Domoticz.Debugging(1)
+            Domoticz.Debug("Dumping config")
             DumpConfigToLog()
         try:
             self.myzones = json.loads(Parameters['Mode3'])
@@ -299,7 +302,9 @@ class BasePlugin:
 
                 if 'exception' in result: return
 
+                Domoticz.Debug("Checking status")
                 if result['cmd'] == 'status':
+                    Domoticz.Debug("Got status")
                     now = datetime.now()
                     self.battery=int(result['battery'])
                     if (result['state_code'] == 8) and (self.battery == 100) : result['state_code']=200
